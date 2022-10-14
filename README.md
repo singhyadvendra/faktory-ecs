@@ -7,11 +7,13 @@ This template will deploy the follwing resources
 4. ECS Service
 5. ECS Task Definition
 6. EFS
-7. and peripheral resources like security groups, elb listener for application and network load balancer, elb target grooups for tcp endpoint for NLB and htpp endpoint for ALB, security groups for alb, ecs and efs
+7. and peripheral resources like security groups, elb listener for application and network load balancer, elb target groups for tcp endpoint for NLB and htpp endpoint for ALB, security groups for alb, ecs and efs
 
 ## references
-https://github.com/contribsys/faktory/wiki/Docker
+For Faktory information [Faktory](https://github.com/contribsys/faktory)
 
-https://github.com/contribsys/faktory/wiki/Installation#docker
+For Faktory information [GitHub Docker](https://github.com/contribsys/faktory/wiki/Docker)
 
-https://hub.docker.com/r/contribsys/faktory/
+For manual installation on VM [Installation](https://github.com/contribsys/faktory/wiki/Installation#docker)
+
+For Faktory docker information [Docker Hub](https://hub.docker.com/r/contribsys/faktory/)
