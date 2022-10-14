@@ -309,7 +309,6 @@ Resources:
           HostPort: 7420
           Protocol: "tcp"
       Family: "faktory-task"
-      TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecstaskroleforebecs"
       ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole"
       NetworkMode: "awsvpc"
       Volumes: 
