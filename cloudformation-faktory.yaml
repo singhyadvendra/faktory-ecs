@@ -25,7 +25,7 @@ Parameters:
     Description: Subnet Id for AZ1 Public subnet
   AZ2PublicSubnetId:
     Type: 'AWS::EC2::Subnet::Id'
-    Default: subnet-09cac440
+    Default: subnet-xxxxxxxx
     Description: Subnet Id for AZ2 Public Subnet
   faktoryEnv:
     Description: FAKTORY_ENV to production or staging depending on your environment.
