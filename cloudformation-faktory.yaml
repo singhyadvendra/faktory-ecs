@@ -1,0 +1,379 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Cloud Formation Template to deploy Faktory Container in AWS ECS"
+
+Parameters:
+  VpcId:
+    Type: 'AWS::EC2::VPC::Id'
+    Default: vpc-xxxxxxxx
+    Description: Select a VPC that allows instances access to the Internet.
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/24
+    Description: Vpc Cidr range
+  AZ1PrivateSubnetId:
+    Type: 'AWS::EC2::Subnet::Id'
+    Default: subnet-xxxxxxxx
+    Description: Subnet Id for AZ1 Trusted Subnet
+  AZ2PrivateSubnetId:
+    Type: 'AWS::EC2::Subnet::Id'
+    Default: subnet-xxxxxxxx
+    Description: Subnet Id for AZ2 Trusted Subnet
+  AZ1PublicSubnetId:
+    Type: 'AWS::EC2::Subnet::Id'
+    Default: subnet-xxxxxxxx
+    Description: Subnet Id for AZ1 Public subnet
+  AZ2PublicSubnetId:
+    Type: 'AWS::EC2::Subnet::Id'
+    Default: subnet-09cac440
+    Description: Subnet Id for AZ2 Public Subnet
+  faktoryEnv:
+    Description: FAKTORY_ENV to production or staging depending on your environment.
+    Type: String
+    Default: production
+  faktoryPass:
+    Description: FAKTORY_PASSWORD which clients know
+    Type: String
+    Default: abcd12345678efgh
+  faktoryImage:
+    Description: faktory image with tag
+    Type: String
+    Default: contribsys/faktory:latest  
+Resources:
+  NetworkLoadBalancer:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Name: "nlb-faktory"
+      Scheme: "internal"
+      Type: "network"
+      Subnets: 
+      - !Ref AZ1PublicSubnetId
+      - !Ref AZ2PublicSubnetId
+      IpAddressType: "ipv4"
+  NetworkLoadBalancerListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      LoadBalancerArn: !Ref NetworkLoadBalancer
+      Port: 7419
+      Protocol: "TCP"
+      DefaultActions: 
+      - 
+        TargetGroupArn: !Ref NetworkLoadBalancerTargetGroup
+        Type: "forward"
+
+  NetworkLoadBalancerTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      Port: 7419
+      Protocol: "TCP"
+      HealthCheckPort: "traffic-port"
+      HealthCheckProtocol: "TCP"
+      HealthCheckTimeoutSeconds: 10
+      UnhealthyThresholdCount: 3
+      TargetType: "ip"
+      HealthyThresholdCount: 3
+      VpcId: !Ref VpcId
+      Name: "faktory-tgt-rest"
+      HealthCheckEnabled: true
+
+  ApplicationLoadBalancer:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Name: "alb-faktory"
+      Scheme: "internal"
+      Type: "application"
+      Subnets: 
+      - !Ref AZ1PublicSubnetId
+      - !Ref AZ2PublicSubnetId
+      SecurityGroups: 
+      - !Ref ALBSecurityGroup
+      IpAddressType: "ipv4"
+
+  ApplicationLoadBalancerListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: "HTTP"
+      DefaultActions: 
+      - 
+        TargetGroupArn: !Ref ApplicationLoadBalancerTargetGroup
+        Type: "forward"
+
+  ApplicationLoadBalancerTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: "/"
+      Port: 80
+      Protocol: "HTTP"
+      HealthCheckPort: "traffic-port"
+      HealthCheckProtocol: "HTTP"
+      HealthCheckTimeoutSeconds: 5
+      UnhealthyThresholdCount: 2
+      TargetType: "ip"
+      Matcher: 
+        HttpCode: "401"
+      HealthyThresholdCount: 5
+      VpcId: !Ref VpcId
+      Name: "faktory-tgt-web"
+      HealthCheckEnabled: true
+
+  ALBSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "load balancer sg for ebecs and bgs dev environment"
+      GroupName: "alb-faktory-sg"
+      Tags: 
+      - 
+        Key: "Name"
+        Value: "Load Balancer Security Group"
+      VpcId: !Ref VpcId
+
+  AlbSecurityGroupHTTPinbound:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      GroupId: !Ref ALBSecurityGroup
+      IpProtocol: tcp
+      FromPort: '80'
+      ToPort: '80'
+      CidrIp: 0.0.0.0/0
+
+  AlbSecurityGroupHTTPoutbound:
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      GroupId: !Ref ALBSecurityGroup
+      DestinationSecurityGroupId: !GetAtt 
+        - ECSSecurityGroup
+        - GroupId
+      IpProtocol: tcp
+      FromPort: '7420'
+      ToPort: '7420'
+
+  ECSSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "allow access to alb and outbound postgres and redis"
+      GroupName: "container-faktory-sg"
+      Tags: 
+      - 
+        Key: "Name"
+        Value: "ECS Security Group"
+ 
+      VpcId: !Ref VpcId
+      SecurityGroupIngress: 
+      - 
+        CidrIp: !Ref VpcCidr
+        FromPort: 7419
+        IpProtocol: "tcp"
+        ToPort: 7419
+      SecurityGroupEgress: 
+      - 
+        CidrIp: "0.0.0.0/0"
+        FromPort: 443
+        IpProtocol: "tcp"
+        ToPort: 443
+      - 
+        CidrIp: "0.0.0.0/0"
+        FromPort: 2049
+        IpProtocol: "tcp"
+        ToPort: 2049
+
+  EcsSecurityGroupHTTPinbound:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      GroupId: !Ref ECSSecurityGroup
+      IpProtocol: tcp
+      FromPort: '7420'
+      ToPort: '7420'
+      SourceSecurityGroupId: !Ref ALBSecurityGroup
+
+  EFSSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "allow access to efs from containers"
+      GroupName: "efs-faktory-sg"
+      VpcId: !Ref VpcId
+      Tags: 
+      - 
+        Key: "Name"
+        Value: "EFS Security Group"
+
+      SecurityGroupIngress: 
+      - 
+        CidrIp: "0.0.0.0/0"
+        FromPort: 2049
+        IpProtocol: "tcp"
+        ToPort: 2049
+      - 
+        SourceSecurityGroupId: !Ref ECSSecurityGroup
+        SourceSecurityGroupOwnerId: !Ref AWS::AccountId
+        FromPort: 2049
+        IpProtocol: "tcp"
+        ToPort: 2049
+      SecurityGroupEgress:
+        - CidrIp: 127.0.0.1/32
+          IpProtocol: '-1'
+
+  ECSCluster:
+    Type: "AWS::ECS::Cluster"
+    Properties:
+      ClusterName: "faktory-cluster"
+      CapacityProviders: 
+      - "FARGATE"
+      - "FARGATE_SPOT"
+
+  ECSService:
+    Type: "AWS::ECS::Service"
+    DependsOn:
+    - NetworkLoadBalancerListener
+    - ApplicationLoadBalancerListener
+    Properties:
+      ServiceName: "faktory-svc"
+      Cluster: !GetAtt ECSCluster.Arn
+      LoadBalancers: 
+      - 
+        TargetGroupArn: !Ref NetworkLoadBalancerTargetGroup
+        ContainerName: "faktory-container"
+        ContainerPort: 7419
+      - 
+        TargetGroupArn: !Ref ApplicationLoadBalancerTargetGroup
+        ContainerName: "faktory-container"
+        ContainerPort: 7420
+      DesiredCount: 1
+      PlatformVersion: "LATEST"
+      TaskDefinition: !Ref ECSTaskDefinition
+      DeploymentConfiguration: 
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+        DeploymentCircuitBreaker: 
+          Enable: false
+          Rollback: false
+      NetworkConfiguration: 
+        AwsvpcConfiguration: 
+          AssignPublicIp: "DISABLED"
+          SecurityGroups: 
+          - !Ref ECSSecurityGroup
+          Subnets: 
+          - !Ref AZ1PrivateSubnetId
+          - !Ref AZ2PrivateSubnetId
+      HealthCheckGracePeriodSeconds: 60
+      SchedulingStrategy: "REPLICA"
+      LaunchType: "FARGATE"
+
+  CloudwatchLogsGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Join 
+        - '-'
+        - - ECSLogGroup
+          - !Ref 'AWS::StackName'
+      RetentionInDays: 7
+
+  ECSTaskDefinition:
+    Type: "AWS::ECS::TaskDefinition"
+    Properties:
+      ContainerDefinitions: 
+      - 
+        Environment: 
+        - 
+          Name: "FAKTORY_ENV"
+          Value: !Ref faktoryEnv
+        - 
+          Name: "FAKTORY_PASSWORD"
+          Value: !Ref faktoryPass
+        Essential: true
+        Image: !Ref faktoryImage
+        LogConfiguration: 
+          LogDriver: "awslogs"
+          Options: 
+            awslogs-group: !Ref CloudwatchLogsGroup
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: "ecs"
+        MountPoints: 
+        - 
+          SourceVolume: "efs-faktory"
+          ContainerPath: "/var/lib/faktory"
+        - 
+          SourceVolume: "efs-faktory"
+          ContainerPath: "/etc/faktory"
+        Name: "faktory-container"
+        PortMappings: 
+        - 
+          ContainerPort: 7419
+          HostPort: 7419
+          Protocol: "tcp"
+        - 
+          ContainerPort: 7420
+          HostPort: 7420
+          Protocol: "tcp"
+      Family: "faktory-task"
+      TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecstaskroleforebecs"
+      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole"
+      NetworkMode: "awsvpc"
+      Volumes: 
+      - Name: "efs-faktory"
+        EFSVolumeConfiguration: 
+          FilesystemId: !Ref EFSFileSystem
+          RootDirectory: "/"
+          TransitEncryption: "DISABLED"
+      RequiresCompatibilities: 
+      - "FARGATE"
+      Cpu: "1024"
+      Memory: "2048"
+
+  ApplicationAutoScalingScalableTarget:
+    Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+    Properties:
+      MaxCapacity: 2
+      MinCapacity: 1
+      ResourceId: !Sub "service/${ECSCluster}/${ECSService.Name}"
+      RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService"
+      ScalableDimension: "ecs:service:DesiredCount"
+      ServiceNamespace: "ecs"
+      SuspendedState: 
+        DynamicScalingInSuspended: false
+        DynamicScalingOutSuspended: false
+        ScheduledScalingSuspended: false
+
+  ApplicationAutoScalingScalingPolicy:
+    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
+    Properties:
+      PolicyName: "faktory-scaling-policy"
+      PolicyType: "TargetTrackingScaling"
+      ScalingTargetId: !Ref ApplicationAutoScalingScalableTarget
+      TargetTrackingScalingPolicyConfiguration: 
+        PredefinedMetricSpecification: 
+          PredefinedMetricType: "ECSServiceAverageCPUUtilization"
+        ScaleInCooldown: 120
+        ScaleOutCooldown: 60
+        TargetValue: 60
+
+  EFSFileSystem:
+    Type: "AWS::EFS::FileSystem"
+    Properties:
+      PerformanceMode: "generalPurpose"
+      Encrypted: true
+      ThroughputMode: "bursting"
+      FileSystemTags:
+      - 
+        Key: "Name"
+        Value: "efs-factory"
+
+  EFSMountTarget:
+    Type: "AWS::EFS::MountTarget"
+    Properties:
+      FileSystemId: !Ref EFSFileSystem
+      SecurityGroups: 
+      - !Ref EFSSecurityGroup
+      SubnetId: !Ref AZ1PrivateSubnetId
+
+  EFSMountTarget2:
+    Type: "AWS::EFS::MountTarget"
+    Properties:
+      FileSystemId: !Ref EFSFileSystem
+      SecurityGroups: 
+      - !Ref EFSSecurityGroup
+      SubnetId: !Ref AZ2PrivateSubnetId
+
