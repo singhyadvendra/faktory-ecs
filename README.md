@@ -7,7 +7,7 @@ This template will deploy the follwing resources
 4. ECS Service
 5. ECS Task Definition
 6. EFS
-7. and peripheral resources like security groups, elb listener for application and network load balancer, elb target groups for tcp endpoint for NLB and htpp endpoint for ALB, security groups for alb, ecs and efs
+7. and other peripheral resources like security groups, elb listener for application and network load balancer, elb target groups for tcp endpoint for NLB and htpp endpoint for ALB, security groups for alb, ecs and efs, ingress and egress rules for security groups, mount points for EFS, scaling policy and scaling target for ECS
 
 ## references
 For Faktory information [Faktory](https://github.com/contribsys/faktory)
