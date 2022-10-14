@@ -11,7 +11,5 @@ This template will deploy the follwing resources
 
 ## references
 https://github.com/contribsys/faktory/wiki/Docker
-
 https://github.com/contribsys/faktory/wiki/Installation#docker
-
 https://hub.docker.com/r/contribsys/faktory/
