@@ -11,6 +11,9 @@ This template will deploy the follwing resources
 
 ## references
 For Faktory information [Faktory](https://github.com/contribsys/faktory)
+
 For Faktory information [GitHub Docker](https://github.com/contribsys/faktory/wiki/Docker)
+
 For manual installation on VM [Installation](https://github.com/contribsys/faktory/wiki/Installation#docker)
+
 For docker image information [Docker Hub](https://hub.docker.com/r/contribsys/faktory/)
