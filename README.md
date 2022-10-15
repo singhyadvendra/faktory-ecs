@@ -13,6 +13,6 @@ This template creates internal load balancers if you want your factory on a inte
 from `Scheme: "internal"` to `Scheme: "internet-facing"` for load balancers
 
 ## references
-For Faktory information [Faktory](https://github.com/contribsys/faktory)
+For Faktory information [Faktory](https://github.com/contribsys/faktory "FAKTORY Information Page")
 
 For docker image information [Docker Hub](https://hub.docker.com/r/contribsys/faktory/)
