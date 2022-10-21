@@ -7,3 +7,4 @@ include:
   - README.md
   - LICENSE.md
   - cloudformation-faktory.yaml
+theme: jekyll-theme-architect
